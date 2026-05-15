@@ -48,6 +48,6 @@ function Write-Config([string]$targetDir) {
 
   $configPath = Join-Path $targetDir "config.json"
   @{
-    serverUrl = "https://your-render-service.onrender.com"
+    serverUrl = "https://codex-license-gateway-image.onrender.com"
   } | ConvertTo-Json | Set-Content -LiteralPath $configPath
 }

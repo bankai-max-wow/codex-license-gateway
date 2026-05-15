@@ -75,6 +75,12 @@ This repo includes a `render.yaml` blueprint for a Node web service with a persi
 
 If Render source builds are blocked by exhausted pipeline minutes, the repo also includes a `Dockerfile` and a GitHub Actions workflow that publishes `ghcr.io/bankai-max-wow/codex-license-gateway:latest`. Render can deploy a prebuilt image instead of building from source.
 
+Current live image-backed deployment:
+
+```text
+https://codex-license-gateway-image.onrender.com
+```
+
 Build it with:
 
 ```bash

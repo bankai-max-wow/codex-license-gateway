@@ -10,3 +10,5 @@ launcher/CodexLauncher/bin/
 launcher/CodexLauncher/obj/
 render-create.json
 render-env.json
+render-image-create.json
+render-openapi.json
