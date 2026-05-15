@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: codex-license-gateway
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    disk:
+      name: gateway-data
+      mountPath: /opt/render/project/src/render-data
+      sizeGB: 5
+    envVars:
+      - key: NODE_VERSION
+        value: 24.13.0
+      - key: DATA_DIR
+        value: /opt/render/project/src/render-data
+      - key: PORT
+        value: 10000
+      - key: APP_BASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MASTER_KEY
+        generateValue: true
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codex License Gateway Admin</title>
+    <style>
+      :root {
+        --bg: #101316;
+        --panel: #161b20;
+        --panel-2: #1f2630;
+        --text: #f1f4f7;
+        --muted: #9ca9b7;
+        --line: #2b3642;
+        --accent: #67e8f9;
+        --accent-2: #d4ff3f;
+        --danger: #ff7b72;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #1b2530, var(--bg) 45%);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+      }
+      .panel {
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      h1, h2 { margin: 0 0 12px; }
+      p { color: var(--muted); }
+      label, input, select, button { display: block; width: 100%; }
+      input, select, button {
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        padding: 12px;
+        margin-top: 8px;
+        margin-bottom: 12px;
+      }
+      input, select {
+        background: #0f1419;
+        color: var(--text);
+      }
+      button {
+        background: var(--accent-2);
+        color: #111;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .muted { color: var(--muted); }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--line);
+        font-size: 14px;
+      }
+      .hidden { display: none; }
+      .danger { color: var(--danger); }
+      code {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div id="loginView" class="panel">
+        <h1>Admin Login</h1>
+        <label>Username <input id="username" value="admin" /></label>
+        <label>Password <input id="password" type="password" /></label>
+        <button id="loginButton">Login</button>
+        <div id="loginError" class="danger"></div>
+      </div>
+
+      <div id="appView" class="hidden">
+        <div class="panel">
+          <h1>Codex License Gateway</h1>
+          <p>
+            This panel manages your own licenses, quotas, and upstream API-key rotation.
+            It does not expose the upstream key to customers.
+          </p>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Dashboard</h2>
+            <p id="stats"></p>
+          </div>
+          <div class="panel">
+            <h2>Create Licenses</h2>
+            <label>Plan
+              <select id="plan">
+                <option value="5x">5x</option>
+                <option value="20x">20x</option>
+                <option value="unlimited">Unlimited</option>
+              </select>
+            </label>
+            <label>Quantity <input id="quantity" type="number" value="5" min="1" max="500" /></label>
+            <label>Months <input id="durationMonths" type="number" value="1" min="1" max="36" /></label>
+            <button id="createLicensesButton">Create</button>
+            <div id="createdLicenses" class="muted"></div>
+          </div>
+          <div class="panel">
+            <h2>Rotate Upstream Key</h2>
+            <label>Name <input id="providerName" placeholder="May 2026 key" /></label>
+            <label>API Key <input id="providerKey" type="password" placeholder="sk-..." /></label>
+            <button id="saveProviderKeyButton">Save Active Key</button>
+            <div class="muted">Stored encrypted on the server.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Rate Limit Config</h2>
+          <p>Edit the backend-enforced 5-hour and weekly caps here.</p>
+          <textarea id="rateLimitConfig" style="width:100%;min-height:320px;background:#0f1419;color:#f1f4f7;border:1px solid #2b3642;border-radius:10px;padding:12px;"></textarea>
+          <button id="saveRateLimitsButton">Save Rate Limits</button>
+        </div>
+
+        <div class="panel">
+          <h2>Licenses</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Months</th>
+                <th>Email</th>
+                <th>Redeemed</th>
+                <th>Expires</th>
+                <th>Reset</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="licenseRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <script src="/static/admin/app.js"></script>
+  </body>
+  </html>
