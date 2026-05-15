@@ -57,9 +57,11 @@ sealed class MainForm : Form
         Text = "Codex Gateway Client";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1240, 760);
+        Size = new Size(1360, 860);
         BackColor = AppBack;
         ForeColor = Ink;
         Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
+        AutoScaleMode = AutoScaleMode.Dpi;
 
         BuildLayout();
         BindEvents();
@@ -101,9 +103,9 @@ sealed class MainForm : Form
             Margin = new Padding(0, 0, 16, 0)
         };
         sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 128));
-        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
-        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
-        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 108));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 108));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 108));
         sidebar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         sidebar.Controls.Add(BuildBrandCard(), 0, 0);
@@ -208,7 +210,7 @@ sealed class MainForm : Form
             RowCount = 1
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
 
         var left = new TableLayoutPanel
         {
@@ -229,8 +231,17 @@ sealed class MainForm : Form
             Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point)
         }, 0, 1);
 
+        var pillHost = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = CardBack,
+            Padding = new Padding(20, 18, 0, 18)
+        };
+        _statusPill.Dock = DockStyle.Fill;
+        pillHost.Controls.Add(_statusPill);
+
         layout.Controls.Add(left, 0, 0);
-        layout.Controls.Add(_statusPill, 1, 0);
+        layout.Controls.Add(pillHost, 1, 0);
 
         card.Controls.Add(layout);
         return card;
@@ -248,19 +259,21 @@ sealed class MainForm : Form
             RowCount = 1
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250));
 
         var form = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             BackColor = CardBack,
             ColumnCount = 1,
-            RowCount = 5
+            RowCount = 6,
+            Padding = new Padding(0, 2, 12, 0)
         };
         form.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        form.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        form.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-        form.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        form.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        form.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+        form.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        form.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
         form.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         form.Controls.Add(CreateSectionTitle("Activation"), 0, 0);
@@ -269,26 +282,33 @@ sealed class MainForm : Form
         form.Controls.Add(_emailBox, 0, 3);
         form.Controls.Add(CreateFieldNote("Email is only needed on first redemption. If the code was already redeemed, the app restores the session."), 0, 4);
 
-        var buttons = new TableLayoutPanel
+        var buttons = new FlowLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             BackColor = CardBack,
-            ColumnCount = 1,
-            RowCount = 3
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoSize = true,
+            Margin = new Padding(0),
+            Padding = new Padding(0, 2, 0, 0)
         };
-        buttons.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        buttons.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-        buttons.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
 
         ConfigureButton(_activateButton);
         ConfigureButton(_refreshButton);
 
-        buttons.Controls.Add(CreateSectionTitle("Actions"), 0, 0);
-        buttons.Controls.Add(_activateButton, 0, 1);
-        buttons.Controls.Add(_refreshButton, 0, 2);
+        var actionsHost = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = CardBack,
+            Padding = new Padding(0, 0, 0, 0)
+        };
+        buttons.Controls.Add(CreateSectionTitle("Actions"));
+        buttons.Controls.Add(_activateButton);
+        buttons.Controls.Add(_refreshButton);
+        actionsHost.Controls.Add(buttons);
 
         layout.Controls.Add(form, 0, 0);
-        layout.Controls.Add(buttons, 1, 0);
+        layout.Controls.Add(actionsHost, 1, 0);
 
         card.Controls.Add(layout);
         return card;
@@ -691,7 +711,7 @@ sealed class MainForm : Form
 
     private static TextBox CreateInput(string placeholder)
     {
-        return new TextBox
+        var box = new TextBox
         {
             BorderStyle = BorderStyle.FixedSingle,
             BackColor = CardAlt,
@@ -700,6 +720,8 @@ sealed class MainForm : Form
             Dock = DockStyle.Fill,
             Margin = new Padding(0, 0, 0, 0)
         };
+        box.MinimumSize = new Size(0, 36);
+        return box;
     }
 
     private static TextBox CreateDetailsBox()
@@ -719,25 +741,30 @@ sealed class MainForm : Form
 
     private static Button CreateButton(string text, Color backColor, Color foreColor)
     {
-        return new Button
+        var button = new Button
         {
             Text = text,
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             Height = 46,
+            Width = 214,
             BackColor = backColor,
             ForeColor = foreColor,
             FlatStyle = FlatStyle.Flat,
             TabStop = false
         };
+        return button;
     }
 
     private static void ConfigureButton(Button button)
     {
         button.FlatAppearance.BorderColor = Border;
         button.FlatAppearance.BorderSize = 1;
-        button.FlatAppearance.MouseOverBackColor = button.BackColor;
-        button.FlatAppearance.MouseDownBackColor = button.BackColor;
-        button.Margin = new Padding(0, 0, 0, 10);
+        button.FlatAppearance.MouseOverBackColor = Lighten(button.BackColor, 10);
+        button.FlatAppearance.MouseDownBackColor = Lighten(button.BackColor, -8);
+        button.Margin = new Padding(0, 0, 0, 12);
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.Font = new Font("Segoe UI Semibold", 10.5F, FontStyle.Bold, GraphicsUnit.Point);
+        button.Cursor = Cursors.Hand;
     }
 
     private static Panel CreateCard(Color backColor)
@@ -778,6 +805,7 @@ sealed class MainForm : Form
     private static Panel BuildMetricCard(string title, Label value)
     {
         var card = CreateCard(CardBack);
+        card.Padding = new Padding(18, 16, 18, 16);
 
         var label = new Label
         {
@@ -792,6 +820,14 @@ sealed class MainForm : Form
         card.Controls.Add(value);
         card.Controls.Add(label);
         return card;
+    }
+
+    private static Color Lighten(Color color, int amount)
+    {
+        var r = Math.Clamp(color.R + amount, 0, 255);
+        var g = Math.Clamp(color.G + amount, 0, 255);
+        var b = Math.Clamp(color.B + amount, 0, 255);
+        return Color.FromArgb(r, g, b);
     }
 }
 
