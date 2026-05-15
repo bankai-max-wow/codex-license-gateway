@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+dist
+launcher
+docs
+data.sqlite
+data.sqlite-shm
+data.sqlite-wal
+render-create.json
+render-env.json
+npm-debug.log

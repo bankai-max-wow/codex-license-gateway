@@ -8,3 +8,5 @@ data.sqlite-wal
 dist/
 launcher/CodexLauncher/bin/
 launcher/CodexLauncher/obj/
+render-create.json
+render-env.json

@@ -73,6 +73,8 @@ Default values are conservative derived defaults for your custom `5x` and `20x` 
 
 This repo includes a `render.yaml` blueprint for a Node web service with a persistent disk and `DATA_DIR` configured to keep the SQLite database across restarts and deploys.
 
+If Render source builds are blocked by exhausted pipeline minutes, the repo also includes a `Dockerfile` and a GitHub Actions workflow that publishes `ghcr.io/bankai-max-wow/codex-license-gateway:latest`. Render can deploy a prebuilt image instead of building from source.
+
 Build it with:
 
 ```bash
