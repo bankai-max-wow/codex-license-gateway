@@ -6,30 +6,35 @@
     <title>Codex License Gateway Admin</title>
     <style>
       :root {
-        --ink-0: #091018;
-        --ink-1: #111a23;
-        --ink-2: #182431;
-        --ink-3: #223243;
-        --steel: #8ea0b5;
-        --fog: #cbd5df;
+        --ink-0: #071018;
+        --ink-1: #0d1721;
+        --ink-2: #13202c;
+        --ink-3: #1a2a38;
+        --ink-4: #223648;
+        --steel: #90a3b8;
+        --steel-soft: #6d8195;
+        --fog: #d8e2ea;
         --paper: #f4f7fb;
-        --signal: #67e8f9;
-        --signal-2: #22d3ee;
-        --lime: #d4ff3f;
-        --ember: #ff7b72;
-        --amber: #ffbf69;
-        --good: #5ee6a8;
-        --line: rgba(148, 163, 184, 0.18);
-        --line-strong: rgba(148, 163, 184, 0.34);
-        --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-        --radius-s: 12px;
-        --radius-m: 18px;
-        --radius-l: 24px;
+        --signal: #86c5ff;
+        --signal-soft: rgba(134, 197, 255, 0.12);
+        --accent: #c6ff43;
+        --accent-deep: #92d11c;
+        --ember: #ff8d7b;
+        --amber: #ffc97d;
+        --good: #67ecb1;
+        --line: rgba(144, 163, 184, 0.14);
+        --line-soft: rgba(144, 163, 184, 0.08);
+        --line-strong: rgba(144, 163, 184, 0.24);
+        --shadow: 0 18px 50px rgba(0, 0, 0, 0.26);
         --space-1: 8px;
         --space-2: 12px;
         --space-3: 16px;
         --space-4: 24px;
         --space-5: 32px;
+        --space-6: 40px;
+        --radius-s: 14px;
+        --radius-m: 22px;
+        --radius-l: 30px;
       }
 
       * {
@@ -39,12 +44,12 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "Bahnschrift", "Segoe UI", sans-serif;
+        font-family: "Segoe UI Variable Display", "Segoe UI", "Inter", sans-serif;
         color: var(--paper);
         background:
-          radial-gradient(circle at top left, rgba(103, 232, 249, 0.14), transparent 30%),
-          radial-gradient(circle at top right, rgba(212, 255, 63, 0.12), transparent 28%),
-          linear-gradient(180deg, #0a1118, #0c131c 28%, #091018);
+          radial-gradient(circle at top left, rgba(134, 197, 255, 0.12), transparent 26%),
+          radial-gradient(circle at top right, rgba(198, 255, 67, 0.08), transparent 24%),
+          linear-gradient(180deg, #08111a, #09131d 32%, #071018);
       }
 
       button,
@@ -61,14 +66,17 @@
       .shell {
         width: min(1520px, calc(100vw - 32px));
         margin: 0 auto;
-        padding: 24px 0 40px;
+        padding: 20px 0 40px;
       }
 
       .panel {
-        background: linear-gradient(180deg, rgba(17, 26, 35, 0.96), rgba(10, 16, 24, 0.98));
+        background:
+          linear-gradient(180deg, rgba(16, 24, 34, 0.92), rgba(10, 16, 24, 0.98)),
+          rgba(10, 16, 24, 0.96);
         border: 1px solid var(--line);
         border-radius: var(--radius-m);
         box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
       }
 
       .login-shell {
@@ -88,7 +96,8 @@
         align-items: center;
         gap: 10px;
         font-size: 12px;
-        letter-spacing: 0.16em;
+        font-weight: 600;
+        letter-spacing: 0.18em;
         text-transform: uppercase;
         color: var(--signal);
         margin-bottom: 12px;
@@ -109,13 +118,15 @@
       }
 
       .title {
-        font-size: clamp(28px, 4vw, 42px);
-        line-height: 1.05;
+        font-size: clamp(28px, 4vw, 46px);
+        line-height: 0.98;
         letter-spacing: -0.04em;
+        max-width: 14ch;
       }
 
       .subtle {
         color: var(--steel);
+        line-height: 1.55;
       }
 
       .form-grid {
@@ -133,7 +144,8 @@
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.14em;
-        color: var(--steel);
+        color: var(--signal);
+        font-weight: 600;
       }
 
       .field input,
@@ -142,17 +154,20 @@
         width: 100%;
         border-radius: var(--radius-s);
         border: 1px solid var(--line);
-        background: rgba(9, 16, 24, 0.88);
+        background: rgba(4, 10, 18, 0.78);
         color: var(--paper);
-        padding: 12px 14px;
+        padding: 14px 16px;
         outline: none;
+        min-height: 52px;
+        transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
       }
 
       .field textarea {
-        min-height: 280px;
+        min-height: 320px;
         resize: vertical;
         font-family: Consolas, "SFMono-Regular", monospace;
         font-size: 13px;
+        line-height: 1.45;
       }
 
       .field input:focus,
@@ -167,34 +182,44 @@
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
+        align-items: center;
       }
 
       button {
         border: 1px solid transparent;
-        border-radius: 999px;
-        padding: 11px 16px;
+        border-radius: 16px;
+        min-height: 48px;
+        padding: 12px 18px;
         cursor: pointer;
-        transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, opacity 120ms ease;
       }
 
       button:hover {
         transform: translateY(-1px);
       }
 
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+        transform: none;
+      }
+
       .primary {
-        background: linear-gradient(135deg, var(--lime), #b6ff4d);
-        color: #111;
-        font-weight: 700;
+        background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+        color: #08110d;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
       }
 
       .secondary {
-        background: rgba(103, 232, 249, 0.08);
+        background: var(--signal-soft);
         color: var(--signal);
-        border-color: rgba(103, 232, 249, 0.28);
+        border-color: rgba(134, 197, 255, 0.25);
       }
 
       .ghost {
-        background: transparent;
+        background: rgba(255, 255, 255, 0.02);
         color: var(--fog);
         border-color: var(--line);
       }
@@ -219,15 +244,17 @@
 
       .topbar {
         display: grid;
-        grid-template-columns: 1.5fr 1fr;
+        grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
         gap: var(--space-3);
         margin-bottom: var(--space-3);
+        align-items: start;
       }
 
       .hero {
-        padding: 24px;
+        padding: 28px;
         display: grid;
-        gap: 18px;
+        gap: 22px;
+        min-height: 220px;
       }
 
       .hero-copy {
@@ -241,7 +268,7 @@
       }
 
       .mini-panel {
-        padding: 18px;
+        padding: 18px 20px;
         display: grid;
         gap: 12px;
       }
@@ -251,24 +278,26 @@
         grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: var(--space-3);
         margin-bottom: var(--space-3);
+        align-items: start;
       }
 
       .metric-card {
-        padding: 18px;
+        padding: 18px 18px 20px;
         display: grid;
         gap: 10px;
-        min-height: 138px;
+        min-height: 142px;
+        align-content: start;
       }
 
       .metric-label {
-        color: var(--steel);
+        color: var(--signal);
         text-transform: uppercase;
-        letter-spacing: 0.14em;
+        letter-spacing: 0.16em;
         font-size: 11px;
       }
 
       .metric-value {
-        font-size: 34px;
+        font-size: clamp(34px, 3vw, 42px);
         line-height: 1;
         letter-spacing: -0.05em;
       }
@@ -288,7 +317,7 @@
         border: 1px solid var(--line);
         padding: 7px 12px;
         color: var(--fog);
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(255, 255, 255, 0.03);
         font-size: 12px;
       }
 
@@ -298,21 +327,25 @@
 
       .workspace {
         display: grid;
-        grid-template-columns: 1.4fr 1fr;
+        grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
         gap: var(--space-3);
         margin-bottom: var(--space-3);
+        align-items: start;
       }
 
       .column {
-        display: grid;
+        display: flex;
+        flex-direction: column;
         gap: var(--space-3);
         min-width: 0;
+        align-self: start;
       }
 
       .section {
-        padding: 18px;
+        padding: 20px;
         display: grid;
         gap: 16px;
+        align-content: start;
       }
 
       .section-head {
@@ -326,27 +359,48 @@
       .section-head > div {
         display: grid;
         gap: 6px;
+        min-width: 0;
+      }
+
+      .section-head h2 {
+        font-size: 20px;
+        letter-spacing: -0.03em;
       }
 
       .toolbar {
         display: grid;
-        grid-template-columns: 1.2fr 180px;
+        grid-template-columns: minmax(0, 1fr) 180px;
         gap: 12px;
+        width: min(100%, 520px);
       }
 
       .card-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
+        align-items: end;
+      }
+
+      .license-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .license-form-grid .field:last-child {
+        align-self: end;
+      }
+
+      .license-form-grid .field:last-child button {
+        width: 100%;
       }
 
       .info-block {
         border: 1px solid var(--line);
         border-radius: var(--radius-s);
-        background: rgba(255, 255, 255, 0.02);
-        padding: 14px;
+        background: rgba(255, 255, 255, 0.025);
+        padding: 14px 16px;
         display: grid;
         gap: 8px;
+        min-width: 0;
       }
 
       .kv {
@@ -359,10 +413,17 @@
         justify-content: space-between;
         gap: 12px;
         font-size: 13px;
+        min-width: 0;
       }
 
       .kv-row span:first-child {
         color: var(--steel);
+      }
+
+      .kv-row strong {
+        min-width: 0;
+        text-align: right;
+        overflow-wrap: anywhere;
       }
 
       table {
@@ -374,7 +435,7 @@
       td {
         text-align: left;
         border-bottom: 1px solid var(--line);
-        padding: 12px 10px;
+        padding: 13px 12px;
         vertical-align: top;
         font-size: 13px;
       }
@@ -402,10 +463,12 @@
         overflow: auto;
         border: 1px solid var(--line);
         border-radius: var(--radius-s);
+        background: rgba(255, 255, 255, 0.015);
       }
 
       .mono {
         font-family: Consolas, "SFMono-Regular", monospace;
+        overflow-wrap: anywhere;
       }
 
       .list {
@@ -426,6 +489,7 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 12px;
+        align-items: start;
       }
 
       .empty {
@@ -454,19 +518,31 @@
       .banner {
         min-height: 20px;
         font-size: 13px;
+        padding: 0 4px;
       }
 
       .banner.error { color: var(--ember); }
       .banner.success { color: var(--good); }
 
-      @media (max-width: 1240px) {
+      .license-detail-root {
+        display: grid;
+        gap: 12px;
+      }
+
+      @media (max-width: 1460px) {
         .metrics {
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
+      }
 
+      @media (max-width: 1240px) {
         .workspace,
         .topbar {
           grid-template-columns: 1fr;
+        }
+
+        .title {
+          max-width: none;
         }
       }
 
@@ -474,12 +550,19 @@
         .metrics,
         .card-grid,
         .split,
-        .toolbar {
+        .toolbar,
+        .license-form-grid {
           grid-template-columns: 1fr;
         }
 
         .shell {
           width: min(100vw - 20px, 1520px);
+        }
+
+        .section,
+        .hero,
+        .mini-panel {
+          padding: 16px;
         }
       }
     </style>
@@ -555,7 +638,7 @@
                   <p class="subtle">Generate one-time redeemable codes with plan and month duration baked in.</p>
                 </div>
               </div>
-              <div class="card-grid">
+              <div class="card-grid license-form-grid">
                 <div class="field">
                   <label for="plan">Plan</label>
                   <select id="plan">

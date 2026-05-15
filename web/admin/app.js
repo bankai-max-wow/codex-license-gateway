@@ -317,7 +317,7 @@ function renderLicenseDetail() {
   const recentUsage = detail.recentUsage || [];
   const rateLimits = formatRateLimits(license.rateLimits);
 
-  elements.licenseDetail.className = "";
+  elements.licenseDetail.className = "license-detail-root";
   elements.licenseDetail.innerHTML = `
     <div class="split">
       <div class="info-block">
