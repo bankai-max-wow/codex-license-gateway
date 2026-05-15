@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Drawing;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -12,17 +10,20 @@ Application.Run(new MainForm());
 
 sealed class MainForm : Form
 {
-    private static readonly Color AppBack = ColorTranslator.FromHtml("#11100D");
-    private static readonly Color PanelBack = ColorTranslator.FromHtml("#1A1814");
-    private static readonly Color PanelRaised = ColorTranslator.FromHtml("#24211B");
-    private static readonly Color Border = ColorTranslator.FromHtml("#343027");
-    private static readonly Color Ink = ColorTranslator.FromHtml("#F7F2E8");
-    private static readonly Color Muted = ColorTranslator.FromHtml("#B7AEA0");
-    private static readonly Color Accent = ColorTranslator.FromHtml("#E8A34B");
-    private static readonly Color AccentSoft = ColorTranslator.FromHtml("#3A2A1C");
-    private static readonly Color AccentAlt = ColorTranslator.FromHtml("#C7DA6B");
-    private static readonly Color Danger = ColorTranslator.FromHtml("#FF7B62");
-    private static readonly Color Success = ColorTranslator.FromHtml("#7ED6A6");
+    private const string DefaultModel = "gpt-5.4-mini";
+
+    private static readonly Color AppBack = ColorTranslator.FromHtml("#0E0B08");
+    private static readonly Color SidebarBack = ColorTranslator.FromHtml("#15110D");
+    private static readonly Color PanelBack = ColorTranslator.FromHtml("#1C1611");
+    private static readonly Color PanelRaised = ColorTranslator.FromHtml("#262019");
+    private static readonly Color Border = ColorTranslator.FromHtml("#3B3127");
+    private static readonly Color Ink = ColorTranslator.FromHtml("#F6EFE6");
+    private static readonly Color Muted = ColorTranslator.FromHtml("#B7AA9A");
+    private static readonly Color Gold = ColorTranslator.FromHtml("#F0A94B");
+    private static readonly Color Olive = ColorTranslator.FromHtml("#C9D36F");
+    private static readonly Color Danger = ColorTranslator.FromHtml("#F07D62");
+    private static readonly Color Success = ColorTranslator.FromHtml("#83D4A4");
+    private static readonly Color FocusTint = ColorTranslator.FromHtml("#302419");
 
     private readonly LocalStorage _storage = new();
     private readonly SemaphoreSlim _busyLock = new(1, 1);
@@ -34,41 +35,36 @@ sealed class MainForm : Form
     private LicenseView? _license;
     private ProviderKeyView? _providerKey;
 
-    private readonly TextBox _serverUrlBox = CreateInputBox("Gateway URL");
-    private readonly TextBox _accessCodeBox = CreateInputBox("Redeemable access code");
-    private readonly TextBox _emailBox = CreateInputBox("Customer email for first activation");
-    private readonly ComboBox _modelBox = CreateModelBox();
-    private readonly TextBox _promptBox = CreateEditorBox(readOnly: false);
-    private readonly TextBox _responseBox = CreateEditorBox(readOnly: true);
-    private readonly TextBox _activityBox = CreateEditorBox(readOnly: true);
+    private readonly Label _banner = new();
+    private readonly Label _planValue = CreateMetricValue();
+    private readonly Label _expiresValue = CreateMetricValue();
+    private readonly Label _statusValue = CreateMetricValue();
+    private readonly Label _setupValue = CreateMetricValue();
 
-    private readonly Button _activateButton = CreateButton("Redeem Code", Accent, Color.Black);
-    private readonly Button _loginButton = CreateButton("Login With Code", AccentSoft, Ink);
-    private readonly Button _executeButton = CreateButton("Execute Setup", AccentAlt, Color.Black);
-    private readonly Button _refreshButton = CreateButton("Refresh Access", AccentSoft, Ink);
-    private readonly Button _removeButton = CreateButton("Remove Access", ColorTranslator.FromHtml("#351B16"), Danger);
-    private readonly Button _sendButton = CreateButton("Send Prompt", Accent, Color.Black);
-    private readonly Button _openRuntimeButton = CreateButton("Open Runtime Folder", PanelRaised, Ink);
+    private readonly TextBox _accessCodeBox = CreateInput("Enter access code");
+    private readonly TextBox _emailBox = CreateInput("Email required only for first redemption");
+    private readonly TextBox _promptBox = CreateEditor(false);
+    private readonly TextBox _responseBox = CreateEditor(true);
+    private readonly TextBox _activityBox = CreateEditor(true);
 
-    private readonly Label _bannerLabel = CreateBannerLabel();
-    private readonly Label _setupStateValue = CreateValueLabel();
-    private readonly Label _planValue = CreateValueLabel();
-    private readonly Label _expiresValue = CreateValueLabel();
-    private readonly Label _statusValue = CreateValueLabel();
-    private readonly Label _providerValue = CreateValueLabel();
+    private readonly Button _activateButton = CreateButton("Activate Access", Gold, Color.Black);
+    private readonly Button _executeButton = CreateButton("Execute Setup", Olive, Color.Black);
+    private readonly Button _refreshButton = CreateButton("Refresh Access", FocusTint, Ink);
+    private readonly Button _removeButton = CreateButton("Remove Access", ColorTranslator.FromHtml("#301612"), Danger);
+    private readonly Button _sendButton = CreateButton("Send Prompt", Gold, Color.Black);
 
     public MainForm()
     {
         _config = _storage.LoadConfig() ?? new LauncherConfig
         {
-            ServerUrl = Environment.GetEnvironmentVariable("CODEX_GATEWAY_URL") ?? "https://codex-license-gateway-image.onrender.com"
+            ServerUrl = "https://codex-license-gateway-image.onrender.com"
         };
         _session = _storage.LoadSession();
         _installation = _storage.LoadInstallation();
 
         Text = "Codex Gateway Client";
-        MinimumSize = new Size(1320, 860);
         StartPosition = FormStartPosition.CenterScreen;
+        MinimumSize = new Size(1380, 900);
         BackColor = AppBack;
         ForeColor = Ink;
         Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
@@ -88,203 +84,220 @@ sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = AppBack,
-            Padding = new Padding(18),
-            ColumnCount = 1,
-            RowCount = 3
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(18)
         };
-        shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));
-        shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 138));
-        shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        shell.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 330));
+        shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-        shell.Controls.Add(BuildHeader(), 0, 0);
-        shell.Controls.Add(BuildStatusRow(), 0, 1);
-        shell.Controls.Add(BuildWorkspace(), 0, 2);
+        shell.Controls.Add(BuildSidebar(), 0, 0);
+        shell.Controls.Add(BuildMainArea(), 1, 0);
 
         Controls.Add(shell);
     }
 
-    private Control BuildHeader()
+    private Control BuildSidebar()
     {
-        var header = CreatePanel();
-        header.Padding = new Padding(24, 18, 24, 18);
+        var sidebar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = SidebarBack,
+            ColumnCount = 1,
+            RowCount = 4,
+            Margin = new Padding(0, 0, 16, 0),
+            Padding = new Padding(18)
+        };
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 132));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 236));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        sidebar.Controls.Add(BuildBrandCard(), 0, 0);
+        sidebar.Controls.Add(BuildAccessCard(), 0, 1);
+        sidebar.Controls.Add(BuildActionsCard(), 0, 2);
+        sidebar.Controls.Add(BuildNotesCard(), 0, 3);
+
+        return sidebar;
+    }
+
+    private Control BuildBrandCard()
+    {
+        var card = CreateCard(SidebarBack);
 
         var title = new Label
         {
+            Text = "CODEX GATEWAY",
             Dock = DockStyle.Top,
-            AutoSize = false,
-            Height = 42,
-            Text = "Customer Codex access, controlled by your gateway.",
-            Font = new Font("Segoe UI Semibold", 24F, FontStyle.Bold, GraphicsUnit.Point),
-            ForeColor = Ink
+            Height = 28,
+            ForeColor = Gold,
+            Font = new Font("Segoe UI", 10F, FontStyle.Bold, GraphicsUnit.Point)
         };
 
-        var subtitle = new Label
+        var headline = new Label
         {
+            Text = "Private customer access with seller-side control.",
             Dock = DockStyle.Top,
-            AutoSize = false,
-            Height = 36,
-            Text = "Redeem a code, execute setup on this device, refresh access when the backend changes, and get logged out automatically when the plan expires or is disabled.",
-            Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point),
-            ForeColor = Muted
+            Height = 58,
+            ForeColor = Ink,
+            Font = new Font("Segoe UI Semibold", 20F, FontStyle.Bold, GraphicsUnit.Point)
         };
 
-        _bannerLabel.Dock = DockStyle.Bottom;
-        _bannerLabel.Height = 24;
+        _banner.Dock = DockStyle.Bottom;
+        _banner.Height = 36;
+        _banner.ForeColor = Success;
+        _banner.Font = new Font("Segoe UI", 10F, FontStyle.Bold, GraphicsUnit.Point);
 
-        header.Controls.Add(_bannerLabel);
-        header.Controls.Add(subtitle);
-        header.Controls.Add(title);
-        return header;
+        card.Controls.Add(_banner);
+        card.Controls.Add(headline);
+        card.Controls.Add(title);
+        return card;
     }
 
-    private Control BuildStatusRow()
+    private Control BuildAccessCard()
     {
-        var row = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = AppBack,
-            ColumnCount = 5,
-            RowCount = 1,
-            Margin = new Padding(0, 12, 0, 12)
-        };
+        var card = CreateCard(PanelBack);
+        card.Controls.Add(CreateSectionStack(
+            "Redeem or restore",
+            "Customers only need their code and, on first use, an email for redemption.",
+            CreateFieldPanel("Access Code", _accessCodeBox),
+            CreateFieldPanel("Customer Email", _emailBox),
+            CreateAccentNote("If the code is already redeemed, Activate Access will restore the session instead of failing.")
+        ));
+        return card;
+    }
 
-        for (var i = 0; i < 5; i += 1)
+    private Control BuildActionsCard()
+    {
+        var buttonStack = new TableLayoutPanel
         {
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
+            Dock = DockStyle.Top,
+            ColumnCount = 1,
+            RowCount = 4,
+            AutoSize = true,
+            BackColor = PanelBack
+        };
+        for (var i = 0; i < 4; i += 1)
+        {
+            buttonStack.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
         }
 
-        row.Controls.Add(BuildMetricCard("Setup State", _setupStateValue), 0, 0);
-        row.Controls.Add(BuildMetricCard("Plan", _planValue), 1, 0);
-        row.Controls.Add(BuildMetricCard("Expires", _expiresValue), 2, 0);
-        row.Controls.Add(BuildMetricCard("Access Status", _statusValue), 3, 0);
-        row.Controls.Add(BuildMetricCard("Provider Key", _providerValue), 4, 0);
+        ConfigureButton(_activateButton);
+        ConfigureButton(_executeButton);
+        ConfigureButton(_refreshButton);
+        ConfigureButton(_removeButton);
 
-        return row;
+        buttonStack.Controls.Add(_activateButton, 0, 0);
+        buttonStack.Controls.Add(_executeButton, 0, 1);
+        buttonStack.Controls.Add(_refreshButton, 0, 2);
+        buttonStack.Controls.Add(_removeButton, 0, 3);
+
+        var card = CreateCard(PanelBack);
+        card.Controls.Add(CreateSectionStack(
+            "Device actions",
+            "Execute Setup prepares the local runtime. Refresh pulls the latest backend state. Remove Access logs out this device and clears local files.",
+            buttonStack
+        ));
+        return card;
     }
 
-    private Control BuildWorkspace()
+    private Control BuildNotesCard()
     {
-        var workspace = new TableLayoutPanel
+        var list = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
-            BackColor = AppBack,
-            ColumnCount = 2,
-            RowCount = 1
-        };
-        workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 408));
-        workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
-        workspace.Controls.Add(BuildLeftRail(), 0, 0);
-        workspace.Controls.Add(BuildPromptArea(), 1, 0);
-
-        return workspace;
-    }
-
-    private Control BuildLeftRail()
-    {
-        var rail = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = AppBack,
+            Dock = DockStyle.Top,
             ColumnCount = 1,
             RowCount = 3,
-            Margin = new Padding(0, 0, 16, 0)
+            AutoSize = true,
+            BackColor = PanelBack
         };
-        rail.RowStyles.Add(new RowStyle(SizeType.Absolute, 272));
-        rail.RowStyles.Add(new RowStyle(SizeType.Absolute, 210));
-        rail.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        list.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        list.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        list.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
 
-        rail.Controls.Add(BuildConnectionPanel(), 0, 0);
-        rail.Controls.Add(BuildSetupPanel(), 0, 1);
-        rail.Controls.Add(BuildNotesPanel(), 0, 2);
-        return rail;
+        list.Controls.Add(CreateBullet("No editable gateway URL is exposed to the customer."), 0, 0);
+        list.Controls.Add(CreateBullet("Refresh picks up backend key rotation and access changes."), 0, 1);
+        list.Controls.Add(CreateBullet("If the plan expires or is disabled, the app clears local access and requires a new code."), 0, 2);
+
+        var card = CreateCard(PanelBack);
+        card.Controls.Add(CreateSectionStack("How this works", "This app stays locked to your hosted gateway and your subscription controls.", list));
+        return card;
     }
 
-    private Control BuildConnectionPanel()
-    {
-        var panel = CreatePanel();
-        panel.Padding = new Padding(18);
-
-        var layout = CreateSectionLayout();
-        layout.Controls.Add(CreateSectionTitle("Access"), 0, 0);
-        layout.Controls.Add(CreateSectionText("Customers redeem their one-time code here. The first redemption locks the device and starts the subscription timeline."), 0, 1);
-        layout.Controls.Add(CreateField("Gateway URL", _serverUrlBox), 0, 2);
-        layout.Controls.Add(CreateField("Access Code", _accessCodeBox), 0, 3);
-        layout.Controls.Add(CreateField("Customer Email", _emailBox), 0, 4);
-
-        var actions = CreateActionRow();
-        actions.Controls.Add(_activateButton);
-        actions.Controls.Add(_loginButton);
-        layout.Controls.Add(actions, 0, 5);
-
-        panel.Controls.Add(layout);
-        return panel;
-    }
-
-    private Control BuildSetupPanel()
-    {
-        var panel = CreatePanel();
-        panel.Padding = new Padding(18);
-
-        var layout = CreateSectionLayout();
-        layout.Controls.Add(CreateSectionTitle("Device Setup"), 0, 0);
-        layout.Controls.Add(CreateSectionText("Execute setup writes the local runtime files for this customer device. Refresh re-checks backend access. Remove access wipes local state and revokes the current session."), 0, 1);
-
-        var actions = CreateActionRow();
-        actions.Controls.Add(_executeButton);
-        actions.Controls.Add(_refreshButton);
-        layout.Controls.Add(actions, 0, 2);
-
-        var lowerActions = CreateActionRow();
-        lowerActions.Controls.Add(_removeButton);
-        lowerActions.Controls.Add(_openRuntimeButton);
-        layout.Controls.Add(lowerActions, 0, 3);
-
-        panel.Controls.Add(layout);
-        return panel;
-    }
-
-    private Control BuildNotesPanel()
-    {
-        var panel = CreatePanel();
-        panel.Padding = new Padding(18);
-
-        var layout = CreateSectionLayout();
-        layout.Controls.Add(CreateSectionTitle("Runtime Notes"), 0, 0);
-        layout.Controls.Add(CreateSectionText("The customer app never stores or receives your upstream OpenAI key. It only keeps a session token and talks to your gateway. If the admin disables the license or the expiry hits, the next refresh clears local access."), 0, 1);
-
-        var notes = CreateInfoList([
-            "Refresh Access picks up backend changes, including key rotation.",
-            "Remove Access clears the local session and runtime folder.",
-            "After expiry, the customer must redeem a new code to continue."
-        ]);
-        layout.Controls.Add(notes, 0, 2);
-
-        panel.Controls.Add(layout);
-        return panel;
-    }
-
-    private Control BuildPromptArea()
+    private Control BuildMainArea()
     {
         var area = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             BackColor = AppBack,
             ColumnCount = 1,
-            RowCount = 2
+            RowCount = 4
         };
-        area.RowStyles.Add(new RowStyle(SizeType.Percent, 56));
-        area.RowStyles.Add(new RowStyle(SizeType.Percent, 44));
+        area.RowStyles.Add(new RowStyle(SizeType.Absolute, 106));
+        area.RowStyles.Add(new RowStyle(SizeType.Absolute, 126));
+        area.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
+        area.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
 
-        area.Controls.Add(BuildPromptPanel(), 0, 0);
-        area.Controls.Add(BuildOutputPanel(), 0, 1);
+        area.Controls.Add(BuildHeroCard(), 0, 0);
+        area.Controls.Add(BuildMetricRow(), 0, 1);
+        area.Controls.Add(BuildWorkspaceCard(), 0, 2);
+        area.Controls.Add(BuildLowerRow(), 0, 3);
+
         return area;
     }
 
-    private Control BuildPromptPanel()
+    private Control BuildHeroCard()
     {
-        var panel = CreatePanel();
-        panel.Padding = new Padding(18);
+        var card = CreateCard(PanelBack);
+
+        var title = new Label
+        {
+            Text = "Premium dark client for your sold subscriptions.",
+            Dock = DockStyle.Top,
+            Height = 48,
+            ForeColor = Ink,
+            Font = new Font("Segoe UI Semibold", 24F, FontStyle.Bold, GraphicsUnit.Point)
+        };
+
+        var copy = new Label
+        {
+            Text = "Customers activate with a code, execute local setup, refresh when you rotate backend state, and get locked out automatically when access ends.",
+            Dock = DockStyle.Top,
+            Height = 36,
+            ForeColor = Muted,
+            Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point)
+        };
+
+        card.Controls.Add(copy);
+        card.Controls.Add(title);
+        return card;
+    }
+
+    private Control BuildMetricRow()
+    {
+        var row = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = AppBack,
+            ColumnCount = 4,
+            RowCount = 1,
+            Margin = new Padding(0, 14, 0, 14)
+        };
+        for (var i = 0; i < 4; i += 1)
+        {
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        }
+
+        row.Controls.Add(CreateMetricCard("Plan", _planValue), 0, 0);
+        row.Controls.Add(CreateMetricCard("Expires", _expiresValue), 1, 0);
+        row.Controls.Add(CreateMetricCard("Access Status", _statusValue), 2, 0);
+        row.Controls.Add(CreateMetricCard("Setup State", _setupValue), 3, 0);
+        return row;
+    }
+
+    private Control BuildWorkspaceCard()
+    {
+        var card = CreateCard(PanelBack);
 
         var layout = new TableLayoutPanel
         {
@@ -293,60 +306,76 @@ sealed class MainForm : Form
             ColumnCount = 1,
             RowCount = 4
         };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
 
-        layout.Controls.Add(CreateSectionTitle("Prompt Runner"), 0, 0);
+        var title = CreateSectionTitle("Workspace");
+        var meta = new Label
+        {
+            Text = $"Requests route through your gateway using {DefaultModel}.",
+            Dock = DockStyle.Fill,
+            ForeColor = Muted,
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point)
+        };
 
-        var topBar = new TableLayoutPanel
+        ConfigureButton(_sendButton);
+        _sendButton.Dock = DockStyle.Right;
+        _sendButton.Width = 170;
+        _sendButton.Margin = new Padding(0);
+
+        var footer = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             BackColor = PanelBack,
-            ColumnCount = 3,
-            RowCount = 1,
-            Margin = new Padding(0, 8, 0, 8)
+            ColumnCount = 2,
+            RowCount = 1
         };
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
-        topBar.Controls.Add(CreateField("Prompt Model", _modelBox), 1, 0);
-        topBar.Controls.Add(_sendButton, 2, 0);
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 182));
+        footer.Controls.Add(new Label
+        {
+            Text = "Type the customer prompt here. Access rules stay server-side.",
+            Dock = DockStyle.Fill,
+            ForeColor = Muted,
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point)
+        }, 0, 0);
+        footer.Controls.Add(_sendButton, 1, 0);
 
-        layout.Controls.Add(topBar, 0, 1);
+        _promptBox.Text = "Describe the coding task here.";
 
-        _promptBox.Text = "Describe the coding task here and route it through your gateway.";
+        layout.Controls.Add(title, 0, 0);
+        layout.Controls.Add(meta, 0, 1);
         layout.Controls.Add(_promptBox, 0, 2);
-        layout.Controls.Add(CreateSectionText("Use this as the customer-side workspace runner. Requests go to your gateway and inherit the license limits and expiry state."), 0, 3);
+        layout.Controls.Add(footer, 0, 3);
 
-        panel.Controls.Add(layout);
-        return panel;
+        card.Controls.Add(layout);
+        return card;
     }
 
-    private Control BuildOutputPanel()
+    private Control BuildLowerRow()
     {
-        var split = new TableLayoutPanel
+        var row = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             BackColor = AppBack,
             ColumnCount = 2,
             RowCount = 1,
-            Margin = new Padding(0, 16, 0, 0)
+            Margin = new Padding(0, 14, 0, 0)
         };
-        split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
-        split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
 
-        split.Controls.Add(BuildEditorPanel("Response", _responseBox), 0, 0);
-        split.Controls.Add(BuildEditorPanel("Activity", _activityBox), 1, 0);
-
-        return split;
+        row.Controls.Add(BuildEditorCard("Response", _responseBox), 0, 0);
+        row.Controls.Add(BuildEditorCard("Activity", _activityBox), 1, 0);
+        return row;
     }
 
-    private Control BuildEditorPanel(string title, TextBox box)
+    private Control BuildEditorCard(string title, TextBox box)
     {
-        var panel = CreatePanel();
-        panel.Padding = new Padding(18);
+        var card = CreateCard(PanelBack);
+        card.Margin = title == "Response" ? new Padding(0, 0, 14, 0) : new Padding(0);
 
         var layout = new TableLayoutPanel
         {
@@ -355,40 +384,37 @@ sealed class MainForm : Form
             ColumnCount = 1,
             RowCount = 2
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         layout.Controls.Add(CreateSectionTitle(title), 0, 0);
         layout.Controls.Add(box, 0, 1);
-
-        panel.Controls.Add(layout);
-        return panel;
+        card.Controls.Add(layout);
+        return card;
     }
 
     private void BindEvents()
     {
-        _activateButton.Click += async (_, _) => await RedeemAsync();
-        _loginButton.Click += async (_, _) => await LoginAsync();
+        _activateButton.Click += async (_, _) => await ActivateAsync();
         _executeButton.Click += async (_, _) => await ExecuteSetupAsync();
         _refreshButton.Click += async (_, _) => await RefreshAccessAsync(manual: true);
-        _removeButton.Click += async (_, _) => await RemoveAccessAsync(remoteLogout: true, clearCode: true, reason: "Access removed on this device.");
+        _removeButton.Click += async (_, _) => await RemoveAccessAsync(remoteLogout: true, clearCode: true, reason: "Access removed from this device.");
         _sendButton.Click += async (_, _) => await SendPromptAsync();
-        _openRuntimeButton.Click += (_, _) => OpenRuntimeFolder();
         _heartbeat.Tick += async (_, _) => await RefreshAccessAsync(manual: false);
     }
 
     private void LoadPersistedState()
     {
-        _serverUrlBox.Text = _config.ServerUrl;
         if (_session is not null)
         {
             _accessCodeBox.Text = _session.LicenseCode;
+            _emailBox.Text = _session.CustomerEmail ?? "";
         }
 
         AppendActivity("Launcher loaded.");
         if (_installation is not null)
         {
-            AppendActivity($"Runtime folder detected at {_installation.RuntimePath}.");
+            AppendActivity($"Runtime already exists at {_installation.RuntimePath}.");
         }
     }
 
@@ -396,39 +422,15 @@ sealed class MainForm : Form
     {
         if (_session is null)
         {
-            SetBanner("Redeem or login with a customer code to start.", Success);
+            SetBanner("Redeem or restore a code to start.", Success);
             return;
         }
 
-        await RefreshAccessAsync(manual: false);
         _heartbeat.Start();
+        await RefreshAccessAsync(manual: false);
     }
 
-    private async Task RedeemAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_accessCodeBox.Text) || string.IsNullOrWhiteSpace(_emailBox.Text))
-        {
-            SetBanner("Access code and email are required for first activation.", Danger);
-            return;
-        }
-
-        await RunBusyAsync(async () =>
-        {
-            SetBanner("Redeeming code...", Accent);
-            var result = await PostJsonAsync(
-                $"{GetServerUrl()}/api/auth/redeem",
-                new
-                {
-                    code = _accessCodeBox.Text.Trim(),
-                    email = _emailBox.Text.Trim(),
-                    deviceId = DeviceFingerprint.Current
-                });
-
-            await HandleAuthAsync(result, "Code redeemed.");
-        });
-    }
-
-    private async Task LoginAsync()
+    private async Task ActivateAsync()
     {
         if (string.IsNullOrWhiteSpace(_accessCodeBox.Text))
         {
@@ -438,16 +440,38 @@ sealed class MainForm : Form
 
         await RunBusyAsync(async () =>
         {
-            SetBanner("Logging in...", Accent);
-            var result = await PostJsonAsync(
-                $"{GetServerUrl()}/api/auth/login",
+            SetBanner("Activating access...", Gold);
+            var code = _accessCodeBox.Text.Trim();
+            var email = _emailBox.Text.Trim();
+            HttpResponseMessage? response = null;
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                response = await PostJsonAsync(
+                    $"{_config.ServerUrl}/api/auth/redeem",
+                    new
+                    {
+                        code,
+                        email,
+                        deviceId = DeviceFingerprint.Current
+                    });
+
+                if (response.StatusCode == HttpStatusCode.Conflict)
+                {
+                    response.Dispose();
+                    response = null;
+                }
+            }
+
+            response ??= await PostJsonAsync(
+                $"{_config.ServerUrl}/api/auth/login",
                 new
                 {
-                    code = _accessCodeBox.Text.Trim(),
+                    code,
                     deviceId = DeviceFingerprint.Current
                 });
 
-            await HandleAuthAsync(result, "Session restored.");
+            await HandleAuthAsync(response, "Access activated.");
         });
     }
 
@@ -455,21 +479,21 @@ sealed class MainForm : Form
     {
         if (_session is null || _license is null)
         {
-            SetBanner("Activate or login before executing setup.", Danger);
+            SetBanner("Activate access before running setup.", Danger);
             return;
         }
 
         await RunBusyAsync(async () =>
         {
             await RefreshAccessCoreAsync(showSuccessBanner: false);
-            if (_license is null || _session is null)
+            if (_session is null || _license is null)
             {
                 return;
             }
 
-            _installation = _storage.SetupRuntime(GetServerUrl(), _session, _license, _providerKey);
-            SetBanner("Setup complete. This device now has a local Codex gateway runtime folder.", Success);
-            AppendActivity($"Setup executed. Runtime ready at {_installation.RuntimePath}.");
+            _installation = _storage.SetupRuntime(_config.ServerUrl, _session, _license, _providerKey);
+            AppendActivity($"Setup complete at {_installation.RuntimePath}.");
+            SetBanner("Setup complete. The customer runtime is ready.", Success);
             UpdateUiState();
         });
     }
@@ -480,7 +504,7 @@ sealed class MainForm : Form
         {
             if (manual)
             {
-                SetBanner("No stored session to refresh.", Danger);
+                SetBanner("No active access to refresh.", Danger);
             }
             return;
         }
@@ -495,26 +519,26 @@ sealed class MainForm : Form
             return;
         }
 
-        var refreshResponse = await SendAuthorizedAsync(HttpMethod.Post, $"{GetServerUrl()}/api/client/refresh", "");
-        if (refreshResponse.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        var response = await SendAuthorizedAsync(HttpMethod.Post, $"{_config.ServerUrl}/api/client/refresh", "{}");
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            var error = await ReadErrorAsync(refreshResponse);
-            await RemoveAccessAsync(remoteLogout: false, clearCode: true, reason: $"Access ended: {error}");
+            var error = await ReadErrorAsync(response);
+            await RemoveAccessAsync(remoteLogout: false, clearCode: true, reason: $"Access expired or disabled: {error}");
             return;
         }
 
-        if (!refreshResponse.IsSuccessStatusCode)
+        if (!response.IsSuccessStatusCode)
         {
-            SetBanner(await ReadErrorAsync(refreshResponse), Danger);
+            SetBanner(await ReadErrorAsync(response), Danger);
             return;
         }
 
-        var refreshBody = JsonSerializer.Deserialize<RefreshResponse>(
-            await refreshResponse.Content.ReadAsStringAsync(),
+        var body = JsonSerializer.Deserialize<RefreshResponse>(
+            await response.Content.ReadAsStringAsync(),
             JsonOptions.Default);
 
-        _license = refreshBody?.License;
-        _providerKey = refreshBody?.ProviderKey;
+        _license = body?.License;
+        _providerKey = body?.ProviderKey;
 
         if (_license is null || !string.Equals(_license.Status, "active", StringComparison.OrdinalIgnoreCase))
         {
@@ -524,14 +548,15 @@ sealed class MainForm : Form
 
         if (_installation is not null)
         {
-            _installation = _storage.SetupRuntime(GetServerUrl(), _session!, _license, _providerKey);
+            _installation = _storage.SetupRuntime(_config.ServerUrl, _session!, _license, _providerKey);
         }
 
+        AppendActivity("Access refreshed from gateway.");
         UpdateUiState();
-        AppendActivity($"Access refreshed at {DateTime.Now:G}.");
+
         if (showSuccessBanner)
         {
-            SetBanner("Access refreshed from the gateway.", Success);
+            SetBanner("Access refreshed.", Success);
         }
     }
 
@@ -541,27 +566,29 @@ sealed class MainForm : Form
         {
             try
             {
-                await SendAuthorizedAsync(HttpMethod.Post, $"{GetServerUrl()}/api/client/logout", "");
+                await SendAuthorizedAsync(HttpMethod.Post, $"{_config.ServerUrl}/api/client/logout", "{}");
             }
             catch
             {
-                // Ignore remote logout failures during cleanup.
+                // Cleanup should continue.
             }
         }
 
         _storage.ClearSession();
         _storage.ClearInstallation();
+
         _session = null;
         _license = null;
         _providerKey = null;
         _installation = null;
+        _responseBox.Clear();
 
         if (clearCode)
         {
-            _accessCodeBox.Text = "";
+            _accessCodeBox.Clear();
+            _emailBox.Clear();
         }
 
-        _responseBox.Clear();
         AppendActivity(reason);
         SetBanner(reason, Danger);
         UpdateUiState();
@@ -571,7 +598,7 @@ sealed class MainForm : Form
     {
         if (_session is null)
         {
-            SetBanner("No active session. Redeem or login first.", Danger);
+            SetBanner("Activate access before sending prompts.", Danger);
             return;
         }
 
@@ -585,33 +612,30 @@ sealed class MainForm : Form
         {
             var payload = JsonSerializer.Serialize(new
             {
-                model = _modelBox.SelectedItem?.ToString() ?? "gpt-5.4-mini",
-                input = _promptBox.Text
+                model = DefaultModel,
+                input = _promptBox.Text.Trim()
             }, JsonOptions.Default);
 
-            SetBanner("Sending prompt through the gateway...", Accent);
-            var response = await SendAuthorizedAsync(
-                HttpMethod.Post,
-                $"{GetServerUrl()}/api/client/responses",
-                payload);
-
+            SetBanner("Sending prompt...", Gold);
+            var response = await SendAuthorizedAsync(HttpMethod.Post, $"{_config.ServerUrl}/api/client/responses", payload);
             var raw = await response.Content.ReadAsStringAsync();
             _responseBox.Text = Pretty(raw);
 
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
-                await RemoveAccessAsync(remoteLogout: false, clearCode: true, reason: "Prompt blocked because access is no longer valid.");
+                await RemoveAccessAsync(remoteLogout: false, clearCode: true, reason: "Prompt rejected because access ended.");
                 return;
             }
 
             if (!response.IsSuccessStatusCode)
             {
-                SetBanner(await ReadErrorAsync(response, raw), Danger);
-                AppendActivity($"Prompt failed: {response.StatusCode}");
+                var error = ExtractErrorMessage(raw);
+                AppendActivity($"Prompt failed: {error}");
+                SetBanner(error, Danger);
                 return;
             }
 
-            AppendActivity("Prompt completed successfully.");
+            AppendActivity("Prompt completed.");
             await RefreshAccessCoreAsync(showSuccessBanner: false);
             SetBanner("Prompt completed.", Success);
         });
@@ -622,111 +646,50 @@ sealed class MainForm : Form
         var raw = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
-            SetBanner(ExtractErrorMessage(raw), Danger);
-            AppendActivity($"Auth request failed: {response.StatusCode}");
+            var error = ExtractErrorMessage(raw);
+            AppendActivity($"Activation failed: {error}");
+            SetBanner(error, Danger);
             return;
         }
 
         var body = JsonSerializer.Deserialize<AuthResponse>(raw, JsonOptions.Default);
         if (body is null)
         {
-            SetBanner("Invalid response from the gateway.", Danger);
+            SetBanner("Invalid gateway response.", Danger);
             return;
         }
-
-        _config = new LauncherConfig { ServerUrl = GetServerUrl() };
-        _storage.SaveConfig(_config);
 
         _session = new SessionData
         {
             SessionToken = body.SessionToken,
             LicenseCode = body.License.Code,
-            CustomerEmail = body.License.CustomerEmail
+            CustomerEmail = _emailBox.Text.Trim()
         };
-        _storage.SaveSession(_session);
-
         _license = body.License;
         _providerKey = null;
-        _heartbeat.Start();
 
-        UpdateUiState();
+        _storage.SaveConfig(_config);
+        _storage.SaveSession(_session);
+
+        _heartbeat.Start();
         AppendActivity(successMessage);
         SetBanner(successMessage, Success);
+        UpdateUiState();
         await RefreshAccessCoreAsync(showSuccessBanner: false);
     }
 
     private void UpdateUiState()
     {
-        _setupStateValue.Text = _installation is null ? "Not Ready" : "Runtime Ready";
-        _planValue.Text = _license?.Plan?.ToUpperInvariant() ?? "No Plan";
+        _planValue.Text = _license?.Plan?.ToUpperInvariant() ?? "LOCKED";
         _expiresValue.Text = FormatExpiry(_license?.ExpiresAt);
-        _statusValue.Text = _license is null ? "Locked" : StatusText(_license);
-        _providerValue.Text = _providerKey?.Name ?? "Waiting";
+        _statusValue.Text = _license is null ? "NO ACCESS" : StatusText(_license);
+        _setupValue.Text = _installation is null ? "NOT READY" : "READY";
 
+        _activateButton.Enabled = true;
         _executeButton.Enabled = _session is not null && _license is not null;
         _refreshButton.Enabled = _session is not null;
         _removeButton.Enabled = _session is not null || _installation is not null;
         _sendButton.Enabled = _session is not null && _license is not null;
-        _openRuntimeButton.Enabled = _installation is not null && Directory.Exists(_installation.RuntimePath);
-
-        if (_installation is not null && Directory.Exists(_installation.RuntimePath))
-        {
-            _activityBox.Text = _activityBox.Text;
-        }
-    }
-
-    private void SetBanner(string message, Color color)
-    {
-        _bannerLabel.Text = message;
-        _bannerLabel.ForeColor = color;
-    }
-
-    private void AppendActivity(string message)
-    {
-        var prefix = $"[{DateTime.Now:HH:mm:ss}] ";
-        _activityBox.AppendText($"{prefix}{message}{Environment.NewLine}");
-    }
-
-    private void OpenRuntimeFolder()
-    {
-        if (_installation is null || !Directory.Exists(_installation.RuntimePath))
-        {
-            SetBanner("No runtime folder has been set up on this device.", Danger);
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = _installation.RuntimePath,
-            UseShellExecute = true
-        });
-    }
-
-    private string GetServerUrl() => _serverUrlBox.Text.Trim().TrimEnd('/');
-
-    private async Task<HttpResponseMessage> SendAuthorizedAsync(HttpMethod method, string url, string payload)
-    {
-        if (_session is null)
-        {
-            throw new InvalidOperationException("Session is not available.");
-        }
-
-        using var client = new HttpClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _session.SessionToken);
-        using var request = new HttpRequestMessage(method, url);
-        if (method != HttpMethod.Get)
-        {
-            request.Content = new StringContent(payload ?? "", Encoding.UTF8, "application/json");
-        }
-
-        return await client.SendAsync(request);
-    }
-
-    private static async Task<HttpResponseMessage> PostJsonAsync(string url, object body)
-    {
-        using var client = new HttpClient();
-        var json = JsonSerializer.Serialize(body, JsonOptions.Default);
-        return await client.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
     }
 
     private async Task RunBusyAsync(Func<Task> work)
@@ -736,33 +699,64 @@ sealed class MainForm : Form
             return;
         }
 
-        ToggleBusyState(true);
+        ToggleBusy(true);
         try
         {
             await work();
         }
         catch (Exception ex)
         {
-            SetBanner(ex.Message, Danger);
             AppendActivity($"Unexpected error: {ex.Message}");
+            SetBanner(ex.Message, Danger);
         }
         finally
         {
-            ToggleBusyState(false);
+            ToggleBusy(false);
             _busyLock.Release();
         }
     }
 
-    private void ToggleBusyState(bool busy)
+    private void ToggleBusy(bool busy)
     {
         Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
         _activateButton.Enabled = !busy;
-        _loginButton.Enabled = !busy;
         _executeButton.Enabled = !busy && _session is not null && _license is not null;
         _refreshButton.Enabled = !busy && _session is not null;
         _removeButton.Enabled = !busy && (_session is not null || _installation is not null);
         _sendButton.Enabled = !busy && _session is not null && _license is not null;
-        _openRuntimeButton.Enabled = !busy && _installation is not null && Directory.Exists(_installation.RuntimePath);
+    }
+
+    private async Task<HttpResponseMessage> SendAuthorizedAsync(HttpMethod method, string url, string payload)
+    {
+        if (_session is null)
+        {
+            throw new InvalidOperationException("Session is missing.");
+        }
+
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _session.SessionToken);
+
+        using var request = new HttpRequestMessage(method, url);
+        request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> PostJsonAsync(string url, object body)
+    {
+        using var client = new HttpClient();
+        var payload = JsonSerializer.Serialize(body, JsonOptions.Default);
+        return await client.PostAsync(url, new StringContent(payload, Encoding.UTF8, "application/json"));
+    }
+
+    private void AppendActivity(string message)
+    {
+        _activityBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+    }
+
+    private void SetBanner(string text, Color color)
+    {
+        _banner.Text = text;
+        _banner.ForeColor = color;
     }
 
     private static string Pretty(string raw)
@@ -782,41 +776,30 @@ sealed class MainForm : Form
     {
         try
         {
-            var error = JsonSerializer.Deserialize<ApiErrorEnvelope>(raw, JsonOptions.Default);
-            if (!string.IsNullOrWhiteSpace(error?.Error))
+            var body = JsonSerializer.Deserialize<ApiErrorEnvelope>(raw, JsonOptions.Default);
+            if (!string.IsNullOrWhiteSpace(body?.Error))
             {
-                return error.Error;
+                return body.Error;
             }
         }
         catch
         {
-            // Fall back to raw message.
+            // Ignore parse errors.
         }
 
         return raw;
     }
 
-    private static async Task<string> ReadErrorAsync(HttpResponseMessage response, string? raw = null)
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
     {
-        raw ??= await response.Content.ReadAsStringAsync();
-        return ExtractErrorMessage(raw);
-    }
-
-    private static string StatusText(LicenseView license)
-    {
-        if (!string.IsNullOrWhiteSpace(license.DisabledAt))
-        {
-            return "Disabled";
-        }
-
-        return string.IsNullOrWhiteSpace(license.Status) ? "Active" : license.Status;
+        return ExtractErrorMessage(await response.Content.ReadAsStringAsync());
     }
 
     private static string FormatExpiry(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return "Not Set";
+            return "NOT SET";
         }
 
         if (!DateTime.TryParse(value, out var parsed))
@@ -824,109 +807,33 @@ sealed class MainForm : Form
             return value;
         }
 
-        return parsed.ToLocalTime().ToString("dd MMM yyyy, HH:mm");
+        return parsed.ToLocalTime().ToString("dd MMM yyyy");
     }
 
-    private static Label CreateBannerLabel()
+    private static string StatusText(LicenseView license)
     {
-        return new Label
+        if (!string.IsNullOrWhiteSpace(license.DisabledAt))
         {
-            AutoSize = false,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold, GraphicsUnit.Point),
-            ForeColor = Success
-        };
+            return "DISABLED";
+        }
+
+        if (!string.IsNullOrWhiteSpace(license.Status))
+        {
+            return license.Status.ToUpperInvariant();
+        }
+
+        return "ACTIVE";
     }
 
-    private static TextBox CreateInputBox(string placeholder)
-    {
-        return new TextBox
-        {
-            PlaceholderText = placeholder,
-            BorderStyle = BorderStyle.FixedSingle,
-            BackColor = PanelRaised,
-            ForeColor = Ink,
-            Height = 34,
-            Margin = new Padding(0, 6, 0, 0)
-        };
-    }
-
-    private static TextBox CreateEditorBox(bool readOnly)
-    {
-        return new TextBox
-        {
-            Multiline = true,
-            ScrollBars = ScrollBars.Vertical,
-            ReadOnly = readOnly,
-            Dock = DockStyle.Fill,
-            BackColor = PanelRaised,
-            ForeColor = Ink,
-            BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Consolas", 10F, FontStyle.Regular, GraphicsUnit.Point)
-        };
-    }
-
-    private static ComboBox CreateModelBox()
-    {
-        var box = new ComboBox
-        {
-            Dock = DockStyle.Fill,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            BackColor = PanelRaised,
-            ForeColor = Ink,
-            FlatStyle = FlatStyle.Flat
-        };
-        box.Items.AddRange(["gpt-5.4-mini", "gpt-5.4", "gpt-5.3-codex"]);
-        box.SelectedIndex = 0;
-        return box;
-    }
-
-    private static Button CreateButton(string text, Color back, Color fore)
-    {
-        return new Button
-        {
-            Text = text,
-            BackColor = back,
-            ForeColor = fore,
-            FlatStyle = FlatStyle.Flat,
-            Height = 38,
-            Dock = DockStyle.Fill,
-            Margin = new Padding(0, 0, 10, 0)
-        };
-    }
-
-    private static Panel CreatePanel()
+    private static Panel CreateCard(Color backColor)
     {
         return new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = PanelBack,
-            Margin = new Padding(0),
-            Padding = new Padding(0)
-        };
-    }
-
-    private static TableLayoutPanel CreateSectionLayout()
-    {
-        return new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = PanelBack,
-            ColumnCount = 1,
-            RowCount = 8
-        };
-    }
-
-    private static FlowLayoutPanel CreateActionRow()
-    {
-        return new FlowLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            WrapContents = false,
-            FlowDirection = FlowDirection.LeftToRight,
-            Margin = new Padding(0, 10, 0, 0),
-            BackColor = PanelBack
+            BackColor = backColor,
+            BorderStyle = BorderStyle.FixedSingle,
+            Padding = new Padding(18),
+            Margin = new Padding(0)
         };
     }
 
@@ -935,109 +842,171 @@ sealed class MainForm : Form
         return new Label
         {
             Text = text,
-            AutoSize = false,
-            Height = 26,
             Dock = DockStyle.Top,
-            Font = new Font("Segoe UI Semibold", 14F, FontStyle.Bold, GraphicsUnit.Point),
-            ForeColor = Ink
+            Height = 28,
+            ForeColor = Ink,
+            Font = new Font("Segoe UI Semibold", 15F, FontStyle.Bold, GraphicsUnit.Point)
         };
     }
 
-    private static Label CreateSectionText(string text)
+    private static Control CreateSectionStack(string title, string copy, params Control[] content)
+    {
+        var stack = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoScroll = true,
+            BackColor = Color.Transparent
+        };
+
+        stack.Controls.Add(CreateSectionTitle(title));
+        stack.Controls.Add(new Label
+        {
+            Text = copy,
+            Width = 260,
+            Height = 44,
+            ForeColor = Muted,
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point),
+            Margin = new Padding(0, 0, 0, 8)
+        });
+
+        foreach (var control in content)
+        {
+            control.Margin = new Padding(0, 0, 0, 10);
+            stack.Controls.Add(control);
+        }
+
+        return stack;
+    }
+
+    private static Panel CreateFieldPanel(string title, Control input)
+    {
+        var panel = new Panel
+        {
+            Width = 260,
+            Height = 66,
+            BackColor = Color.Transparent
+        };
+
+        var label = new Label
+        {
+            Text = title,
+            Dock = DockStyle.Top,
+            Height = 20,
+            ForeColor = Muted,
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold, GraphicsUnit.Point)
+        };
+
+        input.Dock = DockStyle.Bottom;
+        input.Height = 34;
+        panel.Controls.Add(input);
+        panel.Controls.Add(label);
+        return panel;
+    }
+
+    private static Label CreateAccentNote(string text)
     {
         return new Label
         {
             Text = text,
-            AutoSize = false,
-            Height = 46,
-            Dock = DockStyle.Top,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point),
-            ForeColor = Muted,
-            Margin = new Padding(0, 4, 0, 0)
+            Width = 260,
+            Height = 42,
+            ForeColor = Gold,
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point)
         };
     }
 
-    private static Control CreateField(string title, Control input)
-    {
-        var panel = new TableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            BackColor = PanelBack,
-            ColumnCount = 1,
-            RowCount = 2,
-            Margin = new Padding(0, 10, 0, 0),
-            AutoSize = true
-        };
-
-        panel.Controls.Add(new Label
-        {
-            Text = title,
-            Dock = DockStyle.Top,
-            AutoSize = false,
-            Height = 18,
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold, GraphicsUnit.Point),
-            ForeColor = Muted
-        }, 0, 0);
-        panel.Controls.Add(input, 0, 1);
-        return panel;
-    }
-
-    private static Control BuildMetricCard(string title, Label valueLabel)
-    {
-        var panel = CreatePanel();
-        panel.Padding = new Padding(18, 16, 18, 16);
-        panel.Margin = new Padding(0, 0, 12, 0);
-
-        var titleLabel = new Label
-        {
-            Dock = DockStyle.Top,
-            AutoSize = false,
-            Height = 18,
-            Text = title,
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold, GraphicsUnit.Point),
-            ForeColor = Muted
-        };
-
-        valueLabel.Dock = DockStyle.Fill;
-        panel.Controls.Add(valueLabel);
-        panel.Controls.Add(titleLabel);
-        return panel;
-    }
-
-    private static Label CreateValueLabel()
+    private static Label CreateBullet(string text)
     {
         return new Label
         {
-            AutoSize = false,
+            Text = $"- {text}",
+            Width = 260,
+            Height = 28,
+            ForeColor = Muted,
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point)
+        };
+    }
+
+    private static Panel CreateMetricCard(string title, Label value)
+    {
+        var card = CreateCard(PanelBack);
+        card.Margin = new Padding(0, 0, 14, 0);
+
+        var label = new Label
+        {
+            Text = title,
+            Dock = DockStyle.Top,
+            Height = 20,
+            ForeColor = Muted,
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold, GraphicsUnit.Point)
+        };
+
+        value.Dock = DockStyle.Bottom;
+        card.Controls.Add(value);
+        card.Controls.Add(label);
+        return card;
+    }
+
+    private static Label CreateMetricValue()
+    {
+        return new Label
+        {
+            Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.BottomLeft,
-            Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold, GraphicsUnit.Point),
+            ForeColor = Ink,
+            Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold, GraphicsUnit.Point)
+        };
+    }
+
+    private static TextBox CreateInput(string placeholder)
+    {
+        return new TextBox
+        {
+            PlaceholderText = placeholder,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = PanelRaised,
             ForeColor = Ink
         };
     }
 
-    private static Control CreateInfoList(IReadOnlyList<string> items)
+    private static TextBox CreateEditor(bool readOnly)
     {
-        var panel = new TableLayoutPanel
+        return new TextBox
         {
             Dock = DockStyle.Fill,
-            BackColor = PanelBack,
-            ColumnCount = 1,
-            RowCount = items.Count
+            Multiline = true,
+            ScrollBars = ScrollBars.Vertical,
+            ReadOnly = readOnly,
+            BackColor = PanelRaised,
+            ForeColor = Ink,
+            BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Consolas", 10F, FontStyle.Regular, GraphicsUnit.Point)
         };
+    }
 
-        for (var i = 0; i < items.Count; i += 1)
+    private static Button CreateButton(string text, Color backColor, Color foreColor)
+    {
+        return new Button
         {
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-            panel.Controls.Add(new Label
-            {
-                Dock = DockStyle.Fill,
-                Text = $"• {items[i]}",
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point),
-                ForeColor = Muted
-            }, 0, i);
-        }
+            Text = text,
+            BackColor = backColor,
+            ForeColor = foreColor,
+            FlatStyle = FlatStyle.Flat,
+            Height = 44,
+            Width = 260,
+            TabStop = false
+        };
+    }
 
-        return panel;
+    private static void ConfigureButton(Button button)
+    {
+        button.FlatAppearance.BorderColor = Border;
+        button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.MouseDownBackColor = button.BackColor;
+        button.FlatAppearance.MouseOverBackColor = button.BackColor;
+        button.Margin = new Padding(0, 0, 0, 10);
     }
 }
 
@@ -1117,8 +1086,8 @@ sealed class LocalStorage
                 [
                     "Codex Gateway Runtime",
                     "",
-                    "This folder is created by the customer EXE.",
-                    "It does not contain the upstream OpenAI API key.",
+                    "Created by the customer launcher.",
+                    "No upstream OpenAI API key is stored here.",
                     $"Server: {serverUrl}",
                     $"License: {license.Code}",
                     $"Plan: {license.Plan}",
@@ -1184,7 +1153,7 @@ static class DeviceFingerprint
 
 sealed class LauncherConfig
 {
-    public string ServerUrl { get; set; } = "";
+    public string ServerUrl { get; set; } = "https://codex-license-gateway-image.onrender.com";
 }
 
 sealed class SessionData
@@ -1240,7 +1209,6 @@ sealed class ProviderKeyView
 sealed class ApiErrorEnvelope
 {
     public string? Error { get; set; }
-    public LicenseView? License { get; set; }
 }
 
 sealed class LicenseView
@@ -1250,28 +1218,8 @@ sealed class LicenseView
     public string Plan { get; set; } = "";
     public string Status { get; set; } = "";
     public string? CustomerEmail { get; set; }
-    public string? DeviceId { get; set; }
-    public int DurationMonths { get; set; }
-    public string? RedeemedAt { get; set; }
     public string? ExpiresAt { get; set; }
     public string? DisabledAt { get; set; }
-    public string? DisabledReason { get; set; }
-    public string? ResetAt { get; set; }
-    public RateLimitSummary? RateLimits { get; set; }
-}
-
-sealed class RateLimitSummary
-{
-    public Dictionary<string, Dictionary<string, RateWindow>>? Categories { get; set; }
-}
-
-sealed class RateWindow
-{
-    public bool Ok { get; set; }
-    public int? Limit { get; set; }
-    public int Remaining { get; set; }
-    public int? WeeklyLimit { get; set; }
-    public int WeeklyRemaining { get; set; }
 }
 
 static class JsonOptions
