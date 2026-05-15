@@ -516,6 +516,12 @@ app.post("/api/client/refresh", authenticateSession, (req, res) => {
   });
 });
 
+app.post("/api/client/logout", authenticateSession, (req, res) => {
+  const timestamp = nowIso();
+  db.prepare("UPDATE sessions SET revoked_at = ? WHERE id = ?").run(timestamp, req.session.id);
+  res.json({ ok: true, revokedAt: timestamp });
+});
+
 app.post("/api/client/responses", authenticateSession, async (req, res) => {
   syncExpiredLicenses();
   if (!assertLicenseUsable(req.license, res)) {

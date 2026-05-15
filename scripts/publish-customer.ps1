@@ -1,3 +1,14 @@
+function Write-Config([string]$targetDir) {
+  if (-not (Test-Path $targetDir)) {
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+  }
+
+  $configPath = Join-Path $targetDir "config.json"
+  @{
+    serverUrl = "https://codex-license-gateway-image.onrender.com"
+  } | ConvertTo-Json | Set-Content -LiteralPath $configPath
+}
+
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -39,15 +50,4 @@ catch {
 
   Write-Config $litePublishDir
   Write-Host "Published framework-dependent customer app to $litePublishDir"
-}
-
-function Write-Config([string]$targetDir) {
-  if (-not (Test-Path $targetDir)) {
-    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-  }
-
-  $configPath = Join-Path $targetDir "config.json"
-  @{
-    serverUrl = "https://codex-license-gateway-image.onrender.com"
-  } | ConvertTo-Json | Set-Content -LiteralPath $configPath
 }
