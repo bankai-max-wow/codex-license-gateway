@@ -62,6 +62,7 @@ app.post("/api/admin/login", (req, res) => {
 });
 
 app.get("/api/admin/dashboard", authenticateAdmin, (_req, res) => {
+  syncExpiredLicenses();
   const licenses = db.prepare("SELECT COUNT(*) AS count FROM licenses").get().count;
   const redeemed = db
     .prepare("SELECT COUNT(*) AS count FROM licenses WHERE redeemed_at IS NOT NULL")
@@ -69,17 +70,43 @@ app.get("/api/admin/dashboard", authenticateAdmin, (_req, res) => {
   const activeSessions = db
     .prepare("SELECT COUNT(*) AS count FROM sessions WHERE revoked_at IS NULL")
     .get().count;
+  const usageEvents = db.prepare("SELECT COUNT(*) AS count FROM usage_events").get().count;
+  const providerKeys = db.prepare("SELECT COUNT(*) AS count FROM provider_keys").get().count;
+  const statusCounts = db
+    .prepare(
+      `SELECT status, COUNT(*) AS count
+       FROM licenses
+       GROUP BY status`
+    )
+    .all()
+    .reduce((acc, row) => {
+      acc[row.status] = Number(row.count);
+      return acc;
+    }, {});
   const activeProviderKey = db
     .prepare(
-      "SELECT id, name, provider, created_at, updated_at FROM provider_keys WHERE active = 1 ORDER BY updated_at DESC LIMIT 1"
+      "SELECT id, name, provider, active, created_at, updated_at FROM provider_keys WHERE active = 1 ORDER BY updated_at DESC LIMIT 1"
     )
     .get();
+  const latestLicenses = db
+    .prepare(
+      `SELECT id, code, plan, status, customer_email, duration_months, redeemed_at, expires_at, disabled_at, disabled_reason, reset_at, created_at
+       FROM licenses
+       ORDER BY created_at DESC
+       LIMIT 5`
+    )
+    .all()
+    .map(sanitizeLicense);
 
   res.json({
     licenses,
     redeemed,
     activeSessions,
-    activeProviderKey,
+    usageEvents,
+    providerKeys,
+    statusCounts,
+    activeProviderKey: activeProviderKey ? providerKeyView(activeProviderKey) : null,
+    latestLicenses,
     rateLimitConfig: getRateLimitConfig()
   });
 });
@@ -94,6 +121,20 @@ app.get("/api/admin/licenses", authenticateAdmin, (_req, res) => {
     )
     .all();
   res.json(rows.map(sanitizeLicense));
+});
+
+app.get("/api/admin/licenses/:id", authenticateAdmin, (req, res) => {
+  syncExpiredLicenses();
+  const license = db.prepare("SELECT * FROM licenses WHERE id = ?").get(req.params.id);
+  if (!license) {
+    return res.status(404).json({ error: "License not found" });
+  }
+
+  return res.json({
+    license: licenseView(license),
+    sessions: listLicenseSessions(license.id),
+    recentUsage: listLicenseUsage(license.id)
+  });
 });
 
 app.post("/api/admin/licenses", authenticateAdmin, (req, res) => {
@@ -122,6 +163,68 @@ app.post("/api/admin/licenses", authenticateAdmin, (req, res) => {
 
   tx();
   res.status(201).json(created);
+});
+
+app.patch("/api/admin/licenses/:id", authenticateAdmin, (req, res) => {
+  const existing = db.prepare("SELECT * FROM licenses WHERE id = ?").get(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: "License not found" });
+  }
+
+  const updates = [];
+  const values = [];
+  if (req.body?.plan) {
+    updates.push("plan = ?");
+    values.push(normalizePlan(req.body.plan));
+  }
+  if (req.body?.durationMonths !== undefined) {
+    const durationMonths = Math.max(1, Math.min(Number(req.body.durationMonths || 1), 36));
+    updates.push("duration_months = ?");
+    values.push(durationMonths);
+  }
+  if (req.body?.customerEmail !== undefined) {
+    updates.push("customer_email = ?");
+    values.push(req.body.customerEmail || null);
+  }
+  if (req.body?.expiresAt !== undefined) {
+    updates.push("expires_at = ?");
+    values.push(req.body.expiresAt || null);
+  }
+
+  if (updates.length === 0) {
+    return res.json(licenseView(existing));
+  }
+
+  updates.push("updated_at = ?");
+  values.push(nowIso(), req.params.id);
+  db.prepare(`UPDATE licenses SET ${updates.join(", ")} WHERE id = ?`).run(...values);
+
+  const updated = db.prepare("SELECT * FROM licenses WHERE id = ?").get(req.params.id);
+  return res.json(licenseView(updated));
+});
+
+app.post("/api/admin/licenses/:id/extend", authenticateAdmin, (req, res) => {
+  const license = db.prepare("SELECT * FROM licenses WHERE id = ?").get(req.params.id);
+  if (!license) {
+    return res.status(404).json({ error: "License not found" });
+  }
+
+  const months = Math.max(1, Math.min(Number(req.body?.months || 1), 36));
+  const base = license.expires_at && new Date(license.expires_at) > new Date() ? license.expires_at : nowIso();
+  const expiresAt = addMonthsIso(base, months);
+  db.prepare(
+    `UPDATE licenses
+     SET expires_at = ?,
+         status = CASE
+           WHEN status = 'expired' THEN 'active'
+           ELSE status
+         END,
+         updated_at = ?
+     WHERE id = ?`
+  ).run(expiresAt, nowIso(), req.params.id);
+
+  const updated = db.prepare("SELECT * FROM licenses WHERE id = ?").get(req.params.id);
+  return res.json(licenseView(updated));
 });
 
 app.post("/api/admin/licenses/:id/disable", authenticateAdmin, (req, res) => {
@@ -164,6 +267,35 @@ app.post("/api/admin/licenses/:id/enable", authenticateAdmin, (req, res) => {
   res.json(sanitizeLicense(updated));
 });
 
+app.post("/api/admin/licenses/:id/reset-device", authenticateAdmin, (req, res) => {
+  const id = req.params.id;
+  const license = db.prepare("SELECT * FROM licenses WHERE id = ?").get(id);
+  if (!license) {
+    return res.status(404).json({ error: "License not found" });
+  }
+
+  db.prepare(
+    `UPDATE licenses
+     SET device_id = NULL,
+         updated_at = ?
+     WHERE id = ?`
+  ).run(nowIso(), id);
+
+  const updated = db.prepare("SELECT * FROM licenses WHERE id = ?").get(id);
+  res.json(licenseView(updated));
+});
+
+app.post("/api/admin/licenses/:id/revoke-sessions", authenticateAdmin, (req, res) => {
+  const id = req.params.id;
+  const timestamp = nowIso();
+  db.prepare("UPDATE sessions SET revoked_at = ? WHERE license_id = ? AND revoked_at IS NULL").run(timestamp, id);
+  res.json({
+    ok: true,
+    revokedAt: timestamp,
+    sessions: listLicenseSessions(id)
+  });
+});
+
 app.post("/api/admin/provider-keys", authenticateAdmin, (req, res) => {
   const { provider = "openai", name, apiKey } = req.body ?? {};
 
@@ -193,7 +325,80 @@ app.get("/api/admin/provider-keys", authenticateAdmin, (_req, res) => {
        ORDER BY updated_at DESC`
     )
     .all();
-  res.json(rows);
+  res.json(rows.map(providerKeyView));
+});
+
+app.post("/api/admin/provider-keys/:id/activate", authenticateAdmin, (req, res) => {
+  const existing = db.prepare("SELECT * FROM provider_keys WHERE id = ?").get(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: "Provider key not found" });
+  }
+
+  const timestamp = nowIso();
+  db.prepare("UPDATE provider_keys SET active = 0, updated_at = ?").run(timestamp);
+  db.prepare("UPDATE provider_keys SET active = 1, updated_at = ? WHERE id = ?").run(timestamp, req.params.id);
+  const updated = db.prepare("SELECT * FROM provider_keys WHERE id = ?").get(req.params.id);
+  res.json(providerKeyView(updated));
+});
+
+app.delete("/api/admin/provider-keys/:id", authenticateAdmin, (req, res) => {
+  const existing = db.prepare("SELECT * FROM provider_keys WHERE id = ?").get(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: "Provider key not found" });
+  }
+
+  db.prepare("DELETE FROM provider_keys WHERE id = ?").run(req.params.id);
+  res.status(204).end();
+});
+
+app.get("/api/admin/sessions", authenticateAdmin, (_req, res) => {
+  syncExpiredLicenses();
+  const rows = db
+    .prepare(
+      `SELECT
+         sessions.id,
+         sessions.license_id,
+         sessions.device_id,
+         sessions.created_at,
+         sessions.revoked_at,
+         licenses.code,
+         licenses.plan,
+         licenses.status,
+         licenses.customer_email
+       FROM sessions
+       JOIN licenses ON licenses.id = sessions.license_id
+       ORDER BY sessions.created_at DESC`
+    )
+    .all();
+  res.json(rows.map(sessionView));
+});
+
+app.post("/api/admin/sessions/:id/revoke", authenticateAdmin, (req, res) => {
+  const session = db.prepare("SELECT * FROM sessions WHERE id = ?").get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+
+  const timestamp = nowIso();
+  db.prepare("UPDATE sessions SET revoked_at = ? WHERE id = ?").run(timestamp, req.params.id);
+  const updated = db
+    .prepare(
+      `SELECT
+         sessions.id,
+         sessions.license_id,
+         sessions.device_id,
+         sessions.created_at,
+         sessions.revoked_at,
+         licenses.code,
+         licenses.plan,
+         licenses.status,
+         licenses.customer_email
+       FROM sessions
+       JOIN licenses ON licenses.id = sessions.license_id
+       WHERE sessions.id = ?`
+    )
+    .get(req.params.id);
+  res.json(sessionView(updated));
 });
 
 app.get("/api/admin/rate-limits", authenticateAdmin, (_req, res) => {
@@ -423,12 +628,14 @@ function licenseView(license) {
     plan: license.plan,
     status: license.status,
     customerEmail: license.customer_email,
+    deviceId: license.device_id,
     durationMonths: Number(license.duration_months || 0),
     redeemedAt: license.redeemed_at,
     expiresAt: license.expires_at,
     disabledAt: license.disabled_at,
     disabledReason: license.disabled_reason,
     resetAt: license.reset_at,
+    createdAt: license.created_at,
     quotaUsed: Number(license.quota_used || 0),
     quotaLimit: definition.unlimited ? null : "See rateLimits",
     quotaRemaining: definition.unlimited ? null : "See rateLimits",
@@ -475,4 +682,77 @@ function assertLicenseUsable(license, res) {
     return false;
   }
   return true;
+}
+
+function providerKeyView(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    provider: row.provider,
+    name: row.name,
+    active: Boolean(row.active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function sessionView(row) {
+  return {
+    id: row.id,
+    licenseId: row.license_id,
+    licenseCode: row.code,
+    plan: row.plan,
+    licenseStatus: row.status,
+    customerEmail: row.customer_email,
+    deviceId: row.device_id,
+    createdAt: row.created_at,
+    revokedAt: row.revoked_at
+  };
+}
+
+function listLicenseSessions(licenseId) {
+  const rows = db
+    .prepare(
+      `SELECT
+         sessions.id,
+         sessions.license_id,
+         sessions.device_id,
+         sessions.created_at,
+         sessions.revoked_at,
+         licenses.code,
+         licenses.plan,
+         licenses.status,
+         licenses.customer_email
+       FROM sessions
+       JOIN licenses ON licenses.id = sessions.license_id
+       WHERE sessions.license_id = ?
+       ORDER BY sessions.created_at DESC`
+    )
+    .all(licenseId);
+  return rows.map(sessionView);
+}
+
+function listLicenseUsage(licenseId) {
+  return db
+    .prepare(
+      `SELECT id, category, model, request_units, input_tokens, output_tokens, cached_input_tokens, created_at
+       FROM usage_events
+       WHERE license_id = ?
+       ORDER BY created_at DESC
+       LIMIT 25`
+    )
+    .all(licenseId)
+    .map((row) => ({
+      id: row.id,
+      category: row.category,
+      model: row.model,
+      requestUnits: Number(row.request_units || 0),
+      inputTokens: Number(row.input_tokens || 0),
+      outputTokens: Number(row.output_tokens || 0),
+      cachedInputTokens: Number(row.cached_input_tokens || 0),
+      createdAt: row.created_at
+    }));
 }

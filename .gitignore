@@ -12,3 +12,4 @@ render-create.json
 render-env.json
 render-image-create.json
 render-openapi.json
+.playwright-mcp/
